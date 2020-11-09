@@ -1,6 +1,6 @@
 // https://css-tricks.com/manipulating-pixels-using-canvas/
 
-import { createWorker } from 'tesseract.js';
+import Tesseract, { createWorker } from 'tesseract.js';
 import { useRef, useEffect, useState } from 'react';
 
 import './App.css';
@@ -8,15 +8,15 @@ import './App.css';
 function App() {
   const canvasEl = useRef(null);
   const videoEl = useRef(null);
-  // const [mediaStream, setMediaStream] = useState(null);
+  const imgEl = useRef(null);
 
   const worker = createWorker({
     logger: (m) => {
-      console.log(m);
       setOcr(`Status: ${m.status}, Progress: ${Math.floor(m.progress * 100)}%`);
+      console.log(m);
     },
   });
-
+  Tesseract.setLogging(true);
   const [ocr, setOcr] = useState('Push go to start recognition');
 
   const constraints = {
@@ -31,15 +31,8 @@ function App() {
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia(constraints).then((stream) => {
-      //setMediaStream(stream);
       if (videoEl.current === null) return;
       videoEl.current.srcObject = stream;
-      async function initOCR() {
-        await worker.load();
-        await worker.loadLanguage('eng');
-        await worker.initialize('eng');
-      }
-      initOCR();
       draw();
     });
   }, [videoEl]);
@@ -84,16 +77,15 @@ function App() {
 
   function drawCanvas() {
     if (canvasEl.current === null) return;
-    console.log('draw Canvas');
     const ctx = canvasEl.current.getContext('2d');
 
     ctx.drawImage(videoEl.current, 0, 0);
-    // const imageData = ctx.getImageData(
-    //   0,
-    //   0,
-    //   canvasEl.current.width,
-    //   canvasEl.current.height
-    // );
+    const imageData = ctx.getImageData(
+      0,
+      0,
+      canvasEl.current.width,
+      canvasEl.current.height
+    );
     // DRAW A RECTANGLE INTO THE CANVAS
     ctx.beginPath();
     ctx.lineWidth = '8';
@@ -107,13 +99,15 @@ function App() {
   }
 
   async function startOCR() {
-    //mediaStream.getVideoTracks()[0].stop();
-    console.log('start OCR');
+    await worker.load();
+    await worker.loadLanguage('eng');
+    await worker.initialize('eng');
     const image = canvasEl.current.toDataURL('image/png');
-    console.log('image' + image);
     const data = await worker.recognize(image);
-    console
-    .log(data);
+    console.log(data);
+
+    setOcr(data.text);
+    await worker.terminate();
   }
 
   return (
